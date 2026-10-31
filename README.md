@@ -1,4 +1,4 @@
-# COD Guard
+
 
 Looks at every Cash-on-Delivery order before it ships and picks one of four actions:
 **Ship as-is, Ship after WhatsApp confirmation, Nudge to prepaid, Hold / cancel.**
