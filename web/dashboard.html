@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COD Guard - Morning view</title>
+<style>
+  :root{
+    --ink:#1b2230; --soft:#5c6678; --line:#dfe3ea; --paper:#f6f7f9; --card:#ffffff;
+    --ship:#2c7a5f; --confirm:#b9801a; --nudge:#3566b0; --hold:#ae3e38;
+    --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif; --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--ink:#eef1f6;--soft:#a3acbd;--line:#2b3342;--paper:#12161e;--card:#1a202b;
+      --ship:#5cc3a0;--confirm:#e0ad4d;--nudge:#7ea6e8;--hold:#e47d77}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans)}
+  main{max-width:980px;margin:0 auto;padding:28px 20px 60px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  h1{font:600 18px var(--sans);margin:0}
+  label{color:var(--soft);font-size:14px}
+  select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+  select:focus-visible,a:focus-visible,button:focus-visible{outline:2px solid var(--nudge);outline-offset:2px}
+  .hero{margin:34px 0 8px}
+  .hero .big{font:500 clamp(40px,8vw,72px)/1.05 var(--serif);letter-spacing:-.02em}
+  .hero .sub{color:var(--soft);margin-top:8px;max-width:60ch}
+  .pos{color:var(--ship)} .neg{color:var(--hold)}
+  .bar{display:flex;height:30px;border-radius:6px;overflow:hidden;margin:34px 0 14px;background:var(--line)}
+  .bar div{min-width:2px}
+  .buckets{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .b{border-left:4px solid var(--c);padding:4px 0 4px 12px}
+  .b .n{font:500 34px/1.1 var(--serif)} .b .l{color:var(--soft);font-size:14px}
+  .ledger{margin:40px 0 0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 20px}
+  .ledger div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+  .ledger div:last-child{border:0;font-weight:700;font-size:18px}
+  .ledger small{display:block;color:var(--soft);font-weight:400;font-size:13px}
+  h2{font:600 18px var(--sans);margin:44px 0 4px}
+  .hint{color:var(--soft);font-size:14px;margin:0 0 12px}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--soft);font-weight:600}
+  tr:last-child td{border:0}
+  .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;color:#fff}
+  footer{margin-top:40px;color:var(--soft);font-size:13px;max-width:70ch}
+  a{color:var(--nudge)}
+  @media (max-width:640px){.buckets{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>COD Guard: morning view</h1>
+    <div><label for="day">Day </label><select id="day"></select> &nbsp; <a href="/chat">WhatsApp simulator</a></div>
+  </header>
+
+  <section class="hero" aria-live="polite">
+    <div class="big" id="net">-</div>
+    <div class="sub" id="sub">Loading...</div>
+  </section>
+
+  <div class="bar" id="bar" role="img" aria-label="Share of orders in each action"></div>
+  <section class="buckets" id="buckets"></section>
+
+  <section class="ledger" id="ledger"></section>
+
+  <h2>Orders to look at</h2>
+  <p class="hint">Orders we held or sent for confirmation, with the reason in plain English.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Order</th><th>Action</th><th>Risk</th><th>Value</th><th>Why</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+
+  <footer>All Rupee figures are estimates made before we know what really happened. They use the assumptions in
+  config/rules.properties (how many confirmations catch an RTO, how many nudged customers pay online, and so on).
+  The data is a sample, scaled up to about <span id="vol"></span> COD orders a month. Check estimates against real outcomes every week.</footer>
+</main>
+
+<script>
+const COLORS={SHIP:'--ship',CONFIRM:'--confirm',NUDGE:'--nudge',HOLD:'--hold'};
+const rs=n=>(n<0?'-':'')+'\u20B9'+Math.abs(Math.round(n)).toLocaleString('en-IN');
+const el=(t,c,txt)=>{const e=document.createElement(t); if(c)e.className=c; if(txt!==undefined)e.textContent=txt; return e};
+const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k);
+
+async function load(date){
+  const d=await (await fetch('/api/dashboard'+(date?'?date='+date:''))).json();
+  const sel=document.getElementById('day');
+  if(!sel.options.length){d.days.forEach(x=>sel.add(new Option(x,x)));}
+  sel.value=d.date;
+
+  const net=document.getElementById('net');
+  net.textContent=(d.net>=0?'+':'')+rs(d.net); net.className='big '+(d.net>=0?'pos':'neg');
+  const total=d.buckets.reduce((a,b)=>a+b.orders,0);
+  document.getElementById('sub').textContent='Estimated net effect of the system on '+d.date+', across about '+total+' COD orders.';
+  document.getElementById('vol').textContent=d.monthly.toLocaleString('en-IN');
+
+  const bar=document.getElementById('bar'), bk=document.getElementById('buckets'); bar.replaceChildren(); bk.replaceChildren();
+  d.buckets.forEach(b=>{
+    const seg=el('div'); seg.style.flex=Math.max(b.orders,0.01); seg.style.background=css(COLORS[b.key]); seg.title=b.label+': '+b.orders; bar.append(seg);
+    const box=el('div','b'); box.style.setProperty('--c',css(COLORS[b.key]));
+    box.append(el('div','n',b.orders), el('div','l',b.label)); bk.append(box);
+  });
+
+  const L=document.getElementById('ledger'); L.replaceChildren();
+  const line=(label,note,val)=>{const r=el('div'); const l=el('span'); l.append(document.createTextNode(label)); const s=el('small',null,note); l.append(s); r.append(l, el('span',null,val)); L.append(r)};
+  line('Saved from avoided RTOs','Shipping, return, packing and damaged-stock cost we did not pay (about '+rs(d.rtoCost)+' per RTO)',rs(d.saved));
+  line('Lost from cancelled or unconfirmed orders','Profit on orders that may have been genuine, plus ad spend on first-time buyers',rs(-d.lost));
+  line('Prepaid discounts and payment fees','What we pay customers who switch to online payment',rs(-d.fees));
+  line('Net impact','',(d.net>=0?'+':'')+rs(d.net));
+
+  const rows=document.getElementById('rows'); rows.replaceChildren();
+  const list=[...(await (await fetch('/api/orders?date='+d.date+'&action=HOLD')).json()), ...(await (await fetch('/api/orders?date='+d.date+'&action=CONFIRM')).json())];
+  if(!list.length){const tr=el('tr'); const td=el('td',null,'Nothing needs a look on this day.'); td.colSpan=5; tr.append(td); rows.append(tr);}
+  list.forEach(o=>{
+    const tr=el('tr'); const tag=el('span','tag',o.action); tag.style.background=css(COLORS[o.key]);
+    const a=el('td'); a.append(tag);
+    tr.append(el('td',null,o.id+' ('+o.state+')'),a,el('td',null,Math.round(o.risk)+'%'),el('td',null,rs(o.value)),el('td',null,o.reason));
+    rows.append(tr);
+  });
+}
+document.getElementById('day').addEventListener('change',e=>load(e.target.value));
+load().catch(e=>{document.getElementById('sub').textContent='Could not load data: '+e.message});
+</script>
+</body>
+</html>

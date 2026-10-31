@@ -1,0 +1,20 @@
+Loaded 2018 rows -> kept 1984  (removed: 30 duplicates, 1 in transit, 3 with Rs.0 value)
+
+TRAINED on 1655 orders before 2026-09-01, TESTED on 329 later orders (last month in the data).
+Model quality (AUC, 0.5 = guessing, 1.0 = perfect): 0.73
+Rupee facts: one RTO costs Rs.169. Cancelling only pays off above 70% RTO risk (81% for a first-time buyer on a Rs.649 order).
+
+WHAT THE SYSTEM WOULD HAVE DONE (scaled to ~1650 COD orders a month):
+Action                    Orders   Real RTO %  Saved Rs.   Lost Rs.    Net Rs.
+Ship as-is                  1008          15%          0          0          0
+Ship after confirmation      371          47%      14868      12286       2581
+Nudge to prepaid             246          31%       3058          0        998
+Hold / cancel                 25         100%       4248          0       4248
+TOTAL                       1650          26%      22174      12286       7827   (discounts+fees Rs.2061)
+
+COMPARED WITH THE TWO LEADERS' IDEAS (same orders, real outcomes, per month):
+  Ship everything (Marketing's wish):          net Rs.0  | RTO cost we eat: Rs.73063
+  Cancel every order with risk >= 30% (Ops): cancels  572 orders, saves Rs.44178, loses Rs.268210 -> net Rs.-224032
+  Cancel every order with risk >= 40% (Ops): cancels  386 orders, saves Rs.33133, loses Rs.150162 -> net Rs.-117029
+  Cancel every order with risk >= 50% (Ops): cancels  166 orders, saves Rs.17841, loses Rs.57831 -> net Rs.-39990
+  Our 4-bucket plan:                           net Rs.7827
